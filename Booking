@@ -1,0 +1,184 @@
+class User:
+    def __init__(self, user_id, email, phone):
+        self.user_id = user_id
+        self.email = email
+        self.phone = phone
+
+
+class Contractor(User):
+    def __init__(self, user_id, email, phone, skills, location, availability):
+        super().__init__(user_id, email, phone)
+        self.skills = skills
+        self.location = location
+        self.availability = availability
+        self.rating = 0
+        self.reviews = 0
+
+    def get_avg_rating(self):
+        return self.rating / self.reviews if self.reviews else "No reviews yet."
+
+
+class Customer(User):
+    def __init__(self, user_id, email, phone):
+        super().__init__(user_id, email, phone)
+        self.booked_contractors = []
+
+
+class BookingService:
+    def __init__(self):
+        self.contractors = []
+        self.customers = []
+        self.previous_bookings = []
+        self.current_bookings = []
+        # Predefined global set of skills available in the system
+        self.available_skills = {"construction", "hotel", "plumbing", "painting", "carpenter", "electrician"}
+
+    def create_account(self, user_type):
+        user_id = input("Enter your ID: ")
+        email = input("Enter your email: ")
+        phone = input("Enter your phone number: ")
+
+        if user_type.strip().lower() == "contractor":
+            print(f"Available skills: {', '.join(self.available_skills)}")
+            skills = [skill.strip().lower() for skill in input("Enter your skills (comma-separated): ").split(",")]
+            location = input("Enter your location: ")
+            availability = input("Enter your availability (e.g., Mon-Fri): ").strip().lower()
+            for skill in skills:
+                self.available_skills.add(skill.strip())
+            contractor = Contractor(user_id, email, phone, skills, location, availability)
+            self.contractors.append(contractor)
+            print("Contractor account created.")
+        elif user_type.strip().lower() == "customer":
+            customer = Customer(user_id, email, phone)
+            self.customers.append(customer)
+            print("Customer account created.")
+
+    def search_contractors(self, skill, location=None, availability=None):
+        found_contractors = [c for c in self.contractors if skill in c.skills]
+        if location:
+            found_contractors = [c for c in found_contractors if c.location == location]
+        if availability:
+            found_contractors = [c for c in found_contractors if availability in c.availability]
+
+        if found_contractors:
+            print(f"Contractors matching your criteria:")
+            for contractor in found_contractors:
+                print(f"- {contractor.user_id} ({contractor.email}), Location: {contractor.location}, "
+                      f"Availability: {contractor.availability}, Rating: {contractor.get_avg_rating()}")
+        else:
+            print("No contractors found matching the criteria.")
+
+    def book_contractor(self, customer, contractor_id):
+        contractor = next((c for c in self.contractors if c.user_id == contractor_id), None)
+        if contractor:
+            customer.booked_contractors.append(contractor)
+            self.current_bookings.append((customer, contractor))
+            print(f"Booked contractor {contractor.user_id}.")
+        else:
+            print("Contractor not found.")
+
+    def confirm_booking(self, contractor_id):
+        contractor = next((c for c in self.contractors if c.user_id == contractor_id), None)
+        if contractor:
+            pending_bookings = [(cust, cont) for cust, cont in self.current_bookings if cont == contractor]
+            if pending_bookings:
+                print("Pending Bookings:")
+                for customer, _ in pending_bookings:
+                    print(f"Customer {customer.user_id} ({customer.email})")
+                choice = input("Confirm all bookings? (yes/no): ")
+                if choice.lower() == "yes":
+                    for customer, _ in pending_bookings:
+                        self.complete_booking(customer, contractor)
+                    print("All bookings confirmed.")
+                else:
+                    print("No bookings confirmed.")
+            else:
+                print("No pending bookings for this contractor.")
+        else:
+            print("Contractor not found.")
+
+    def complete_booking(self, customer, contractor):
+        self.previous_bookings.append((customer, contractor))
+        self.current_bookings.remove((customer, contractor))
+        print("Booking marked as complete.")
+
+    def review_contractor(self, contractor_id, rating):
+        if rating < 1 or rating > 10:
+            print("Invalid rating. Please enter a number between 1 and 10.")
+            return
+        contractor = next((c for c in self.contractors if c.user_id == contractor_id), None)
+        if contractor:
+            contractor.rating += rating
+            contractor.reviews += 1
+            print(f"Contractor {contractor.user_id} now has an average rating of {contractor.get_avg_rating()}.")
+        else:
+            print("Contractor not found.")
+
+    def display_skills(self):
+        if self.available_skills:
+            print("Available Skills:")
+            for skill in sorted(self.available_skills):
+                print(f"- {skill}")
+        else:
+            print("No skills available.")
+
+# Initialize the booking service
+service = BookingService()
+
+# Main menu loop
+while True:
+    print("\n--- Main Menu ---")
+    print("1. Create Account (Customer/Contractor)")
+    print("2. Search Contractors by Skill")
+    print("3. Book Contractors")
+    print("4. Confirm Bookings (For Contractors)")
+    print("5. View Bookings (Previous and Current)")
+    print("6. View Contractor Rating")
+    print("7. Review Contractor")
+    print("8. Display Available Skills")
+    print("9. Quit")
+
+    choice = input("Enter your choice: ")
+
+    if choice == "1":
+        user_type = input("Are you a Customer or Contractor? ")
+        service.create_account(user_type)
+    elif choice == "2":
+        skill = input("Enter the skill you are looking for: ")
+        location = input("Enter location (optional): ")
+        availability = input("Enter availability (optional): ")
+        service.search_contractors(skill, location, availability)
+    elif choice == "3":
+        customer_id = input("Enter your Customer ID: ")
+        customer = next((c for c in service.customers if c.user_id == customer_id), None)
+        if customer:
+            while True:
+                contractor_id = input("Enter Contractor ID to book (or type 'done' to finish): ")
+                if contractor_id.lower() == "done":
+                    break
+                service.book_contractor(customer, contractor_id)
+        else:
+            print("Customer not found.")
+    elif choice == "4":
+        contractor_id = input("Enter your Contractor ID: ")
+        service.confirm_booking(contractor_id)
+    elif choice == "5":
+        service.view_bookings()
+    elif choice == "6":
+        contractor_id = input("Enter Contractor ID to view rating: ")
+        contractor = next((c for c in service.contractors if c.user_id == contractor_id), None)
+        if contractor:
+            print(f"Contractor {contractor.user_id} has an average rating of {contractor.get_avg_rating()}.")
+        else:
+            print("Contractor not found.")
+    elif choice == "7":
+        contractor_id = input("Enter Contractor ID to review: ")
+        rating = int(input("Enter rating (1-10): "))
+        service.review_contractor(contractor_id, rating)
+    elif choice == "8":
+        service.display_skills()
+    elif choice == "9":
+        print("Thank you for using the booking service!")
+        break
+    else:
+        print("Invalid choice. Please try again.")
